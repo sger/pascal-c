@@ -1,0 +1,5 @@
+build
+*.o
+pascal
+.DS_Store
+*.exe
