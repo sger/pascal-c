@@ -1,89 +1,86 @@
+#include "common.h"
+#include "error.h"
+#include "scanner.h"
 #include <stdio.h>
-#include <stdlib.h> 
-#include <time.h> 
+#include <stdlib.h>
 #include <string.h>
+#include <time.h>
 
-#define FORM_FEED_CHAR '\f'
-#define MAX_FILE_NAME_LENGTH 32
-#define MAX_SOURCE_LINE_LENGTH 256
-#define MAX_PRINT_LINE_LENGTH 80
-#define MAX_LINES_PER_PAGE 50
-#define DATE_STRING_LENGTH 26
+char *symbolStrings[] = {
+    "<no token>", "<IDENTIFIER>",
+    "<NUMBER>",   "<STRING>",
+    "^",          "*",
+    "(",          ")",
+    "-",          "+",
+    "=",          "[",
+    "]",          ":",
+    ";",          "<",
+    ">",          ",",
+    ".",          "/",
+    ":=",         "<=",
+    ">=",         "<>",
+    "..",         "<END OF FILE>",
+    "<ERROR>",    "AND",
+    "ARRAY",      "BEGIN",
+    "CASE",       "CONST",
+    "DIV",        "DO",
+    "DOWNTO",     "ELSE",
+    "END",        "FILE",
+    "FOR",        "FUNCTION",
+    "GOTO",       "IF",
+    "IN",         "LABEL",
+    "MOD",        "NIL",
+    "NOT",        "OF",
+    "OR",         "PACKED",
+    "PROCEDURE",  "PROGRAM",
+    "RECORD",     "REPEAT",
+    "SET",        "THEN",
+    "TO",         "TYPE",
+    "UNTIL",      "VAR",
+    "WHILE",      "WITH",
+};
 
-typedef enum {
-    FALSE,
-    TRUE,
-} BOOLEAN;
+extern TOKEN_CODE tokenCode;
+extern char tokenString[];
+extern LITERAL literal;
 
-int line_nunber = 0;
-int page_number = 0;
-int level = 0;
-int line_count = MAX_LINES_PER_PAGE;
-char source_buffer[MAX_SOURCE_LINE_LENGTH];
-char source_name[MAX_FILE_NAME_LENGTH];
-char date[DATE_STRING_LENGTH];
+void printToken() {
+  char line[MAX_SOURCE_LINE_LENGTH + 32];
+  char *symbolString = symbolStrings[tokenCode];
 
-FILE *source_file;
-
-void print_line(char line[]);
-void print_page_header();
-
-void init_lister(const char *name) {
-    time_t timer;
-    strcpy(source_name, name);
-    source_file = fopen(source_name, "r");
-    time(&timer);
-    strcpy(date, asctime(localtime(&timer)));
-}
-
-BOOLEAN get_source_line() {
-    char print_buffer[MAX_SOURCE_LINE_LENGTH + 9];
-    if ((fgets(source_buffer, MAX_SOURCE_LINE_LENGTH, source_file)) != NULL) {
-        ++line_nunber;
-        sprintf(print_buffer, "%4d %d: %s", line_nunber, level, source_buffer);
-        print_line(print_buffer);
-        return TRUE;
+  switch (tokenCode) {
+  case NUMBER:
+    if (literal.type == INTEGER_LIT) {
+      sprintf(line, "     >> %-16s %d (integer)\n", symbolString,
+              literal.value.integer);
     } else {
-        return FALSE;
+      sprintf(line, "     >> %-16s %g (real)\n", symbolString,
+              literal.value.real);
     }
+    break;
+  case STRING:
+    sprintf(line, "     >> %-16s %-s\n", symbolString, literal.value.string);
+    break;
+  default:
+    sprintf(line, "     >> %-16s %-s\n", symbolString, tokenString);
+    break;
+  }
+  printLine(line);
 }
 
 int main(int argc, const char *argv[]) {
-    BOOLEAN get_source_line();
-    init_lister(argv[1]);
-    while(get_source_line());
-}
+  initializeScanner(argv[1]);
 
-void print_page_header() {
-    putchar(FORM_FEED_CHAR);
-    printf("Page %d %s  %s\n\n", ++page_number, source_name, date);
-}
-
-void print_line(char line[]) {
-    char save_ch;
-    char *save_chp = NULL;
-
-    if (++line_count > MAX_LINES_PER_PAGE)
-    {
-        print_page_header();
-        line_count = 0;
+  do {
+    getToken();
+    if (tokenCode == END_OF_FILE) {
+      error(UNEXPECTED_END_OF_FILE);
+      break;
     }
 
-    if (strlen(line) > MAX_PRINT_LINE_LENGTH)
-    {
-        save_chp = &line[MAX_SOURCE_LINE_LENGTH];
-    }
+    printToken();
 
-    if (save_chp) 
-    {
-        save_ch = *save_chp;
-        *save_chp = '\0';
-    }
-    
-    printf("%s", line);
-    
-    if (save_chp)
-    {
-        *save_chp = save_ch;
-    }
+  } while (tokenCode != PERIOD);
+
+  quitScanner();
 }
